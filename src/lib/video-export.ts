@@ -5,15 +5,14 @@
  */
 import type { FFmpeg } from "@ffmpeg/ffmpeg";
 
-import wasmAsset from "@/assets/ffmpeg-core.wasm.asset.json";
-
 /**
  * The core must expose an ESM default export for FFmpeg's module worker.
- * Core script and wasm binary are both served same-origin (public dir and the
- * asset CDN path), so the worker can import them directly. Blob URLs are
+ * Core script and wasm binary are both served same-origin from the public
+ * directory, so the worker can import them directly. Blob URLs are
  * blocked by some iframe sandbox policies, so they are avoided.
  */
 const CORE_URL = "/ffmpeg/ffmpeg-core.js";
+const WASM_URL = "/ffmpeg/ffmpeg-core.wasm";
 
 let ffmpegPromise: Promise<FFmpeg> | null = null;
 
@@ -24,7 +23,7 @@ async function getFFmpeg(onLog?: (line: string) => void): Promise<FFmpeg> {
       const ffmpeg = new FFmpegClass();
       await ffmpeg.load({
         coreURL: new URL(CORE_URL, location.origin).href,
-        wasmURL: new URL(wasmAsset.url, location.origin).href,
+        wasmURL: new URL(WASM_URL, location.origin).href,
       });
       return ffmpeg;
     })();
