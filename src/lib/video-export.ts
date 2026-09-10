@@ -11,8 +11,9 @@ import type { FFmpeg } from "@ffmpeg/ffmpeg";
  * directory, so the worker can import them directly. Blob URLs are
  * blocked by some iframe sandbox policies, so they are avoided.
  */
-const CORE_URL = "/ffmpeg/ffmpeg-core.js";
-const WASM_URL = "/ffmpeg/ffmpeg-core.wasm";
+// Keep both files on the same release and bypass previously cached core assets.
+const CORE_URL = "/ffmpeg/ffmpeg-core.js?v=0.12.10";
+const WASM_URL = "/ffmpeg/ffmpeg-core.wasm?v=0.12.10";
 
 let ffmpegPromise: Promise<FFmpeg> | null = null;
 
