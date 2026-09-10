@@ -5,22 +5,19 @@
  */
 import type { FFmpeg } from "@ffmpeg/ffmpeg";
 
-const CORE_BASE = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd";
+import wasmAsset from "@/assets/ffmpeg-core.wasm.asset.json";
+
+/** Self-hosted, same-origin core files: blob-URL cores break the ffmpeg worker. */
+const CORE_URL = "/ffmpeg/ffmpeg-core.js";
 
 let ffmpegPromise: Promise<FFmpeg> | null = null;
 
 async function getFFmpeg(onLog?: (line: string) => void): Promise<FFmpeg> {
   if (!ffmpegPromise) {
     ffmpegPromise = (async () => {
-      const [{ FFmpeg: FFmpegClass }, { toBlobURL }] = await Promise.all([
-        import("@ffmpeg/ffmpeg"),
-        import("@ffmpeg/util"),
-      ]);
+      const { FFmpeg: FFmpegClass } = await import("@ffmpeg/ffmpeg");
       const ffmpeg = new FFmpegClass();
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${CORE_BASE}/ffmpeg-core.js`, "text/javascript"),
-        wasmURL: await toBlobURL(`${CORE_BASE}/ffmpeg-core.wasm`, "application/wasm"),
-      });
+      await ffmpeg.load({ coreURL: CORE_URL, wasmURL: wasmAsset.url });
       return ffmpeg;
     })();
   }
@@ -30,6 +27,7 @@ async function getFFmpeg(onLog?: (line: string) => void): Promise<FFmpeg> {
   }
   return instance;
 }
+
 
 /** Blurred cover background + original video centered with contain, at 1920x1080. */
 const FILTER_COMPLEX = [
