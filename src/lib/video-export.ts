@@ -8,9 +8,9 @@ import type { FFmpeg } from "@ffmpeg/ffmpeg";
 import wasmAsset from "@/assets/ffmpeg-core.wasm.asset.json";
 
 /**
- * The core script is fetched as text and handed to the worker as a blob URL:
- * a direct /public URL would be rewritten by the dev server's module pipeline.
- * The 32MB wasm binary is served straight from its asset URL.
+ * Core script and wasm binary are both served same-origin (public dir and the
+ * asset CDN path), so the worker can import them directly. Blob URLs are
+ * blocked by some iframe sandbox policies, so they are avoided.
  */
 const CORE_URL = "/ffmpeg/ffmpeg-core.js";
 
@@ -19,17 +19,18 @@ let ffmpegPromise: Promise<FFmpeg> | null = null;
 async function getFFmpeg(onLog?: (line: string) => void): Promise<FFmpeg> {
   if (!ffmpegPromise) {
     ffmpegPromise = (async () => {
-      const [{ FFmpeg: FFmpegClass }, coreSource] = await Promise.all([
-        import("@ffmpeg/ffmpeg"),
-        fetch(CORE_URL).then((res) => res.text()),
-      ]);
-      const coreURL = URL.createObjectURL(
-        new Blob([coreSource], { type: "text/javascript" }),
-      );
+      const { FFmpeg: FFmpegClass } = await import("@ffmpeg/ffmpeg");
       const ffmpeg = new FFmpegClass();
-      await ffmpeg.load({ coreURL, wasmURL: new URL(wasmAsset.url, location.origin).href });
+      await ffmpeg.load({
+        coreURL: new URL(CORE_URL, location.origin).href,
+        wasmURL: new URL(wasmAsset.url, location.origin).href,
+      });
       return ffmpeg;
     })();
+    ffmpegPromise.catch(() => {
+      // Allow retry after a failed load (network hiccup, aborted import, …).
+      ffmpegPromise = null;
+    });
   }
 
   const instance = await ffmpegPromise;
