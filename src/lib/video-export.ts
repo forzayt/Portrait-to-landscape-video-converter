@@ -4,6 +4,7 @@
  * transcoded, and read back as a Blob.
  */
 import type { FFmpeg } from "@ffmpeg/ffmpeg";
+import { DEFAULT_RESOLUTION, landscapeFilter, type ExportResolution } from "./export-resolution";
 
 /**
  * The core must expose an ESM default export for FFmpeg's module worker.
@@ -42,20 +43,12 @@ async function getFFmpeg(onLog?: (line: string) => void): Promise<FFmpeg> {
 }
 
 
-/** Blurred cover background + original video centered with contain, at 1920x1080. */
-const FILTER_COMPLEX = [
-  "[0:v]scale=256:144,setsar=1,",
-  "scale=1920:1080:force_original_aspect_ratio=increase,",
-  "crop=1920:1080,gblur=sigma=24[bg];",
-  "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,setsar=1[fg];",
-  "[bg][fg]overlay=(W-w)/2:(H-h)/2",
-].join("");
-
 export type ExportProgress = { ratio: number };
 
 export async function exportLandscapeVideo(
   file: File,
   onProgress: (progress: ExportProgress) => void,
+  resolution: ExportResolution = DEFAULT_RESOLUTION,
 ): Promise<Blob> {
   const { fetchFile } = await import("@ffmpeg/util");
   const ffmpeg = await getFFmpeg();
@@ -70,11 +63,11 @@ export async function exportLandscapeVideo(
 
   try {
     await ffmpeg.writeFile(inputName, await fetchFile(file));
-    await ffmpeg.exec([
+    const exitCode = await ffmpeg.exec([
       "-i",
       inputName,
       "-filter_complex",
-      FILTER_COMPLEX,
+      landscapeFilter(resolution),
       "-c:v",
       "libx264",
       "-preset",
@@ -93,14 +86,15 @@ export async function exportLandscapeVideo(
       "+faststart",
       outputName,
     ]);
+    if (exitCode !== 0) throw new Error("Export failed. Try a lower resolution or a shorter video.");
     const data = (await ffmpeg.readFile(outputName)) as Uint8Array;
     const buffer = new ArrayBuffer(data.byteLength);
     new Uint8Array(buffer).set(data);
-    await ffmpeg.deleteFile(inputName).catch(() => {});
-    await ffmpeg.deleteFile(outputName).catch(() => {});
     return new Blob([buffer], { type: "video/mp4" });
   } finally {
     ffmpeg.off("progress", handleProgress);
+    await ffmpeg.deleteFile(inputName).catch(() => {});
+    await ffmpeg.deleteFile(outputName).catch(() => {});
   }
 }
 

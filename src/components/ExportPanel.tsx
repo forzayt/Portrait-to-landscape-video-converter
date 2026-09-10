@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { exportLandscapeVideo } from "@/lib/video-export";
+import { DEFAULT_RESOLUTION, EXPORT_RESOLUTIONS, type ExportResolution } from "@/lib/export-resolution";
 
 type ExportPanelProps = {
   file: File;
@@ -9,6 +10,7 @@ type ExportPanelProps = {
 type Status = "idle" | "working" | "done" | "error";
 
 export function ExportPanel({ file }: ExportPanelProps) {
+  const [resolution, setResolution] = useState<ExportResolution>(DEFAULT_RESOLUTION);
   const [status, setStatus] = useState<Status>("idle");
   const [ratio, setRatio] = useState(0);
   const [result, setResult] = useState<string | null>(null);
@@ -22,14 +24,14 @@ export function ExportPanel({ file }: ExportPanelProps) {
       return null;
     });
     setMessage(null);
-  }, [file]);
+  }, [file, resolution]);
 
   const run = useCallback(async () => {
     setStatus("working");
     setRatio(0);
     setMessage(null);
     try {
-      const blob = await exportLandscapeVideo(file, ({ ratio: r }) => setRatio(r));
+      const blob = await exportLandscapeVideo(file, ({ ratio: r }) => setRatio(r), resolution);
       setResult(URL.createObjectURL(blob));
       setStatus("done");
     } catch (error) {
@@ -37,7 +39,7 @@ export function ExportPanel({ file }: ExportPanelProps) {
       setMessage(error instanceof Error ? error.message : "Export failed");
       setStatus("error");
     }
-  }, [file]);
+  }, [file, resolution]);
 
   const percent = Math.round(ratio * 100);
   const downloadName = file.name.replace(/\.[^.]+$/, "") + "-landscape.mp4";
@@ -46,12 +48,28 @@ export function ExportPanel({ file }: ExportPanelProps) {
     <div className="rounded-2xl border border-border bg-card/60 p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="font-medium">Export 1920 × 1080 MP4</p>
+          <p className="font-medium">Export {resolution.width} × {resolution.height} MP4</p>
           <p className="text-sm text-muted-foreground">
             Blurred background baked in, original audio kept.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-sm">
+            Resolution
+            <select
+              value={resolution.height}
+              onChange={(event) => {
+                const selected = EXPORT_RESOLUTIONS.find((option) => option.height === Number(event.target.value));
+                if (selected) setResolution(selected);
+              }}
+              disabled={status === "working"}
+              className="min-w-0 rounded-xl border border-border bg-background px-3 py-2.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            >
+              {EXPORT_RESOLUTIONS.map((option) => (
+                <option key={option.height} value={option.height}>{option.label}</option>
+              ))}
+            </select>
+          </label>
           <button
             onClick={run}
             disabled={status === "working"}
