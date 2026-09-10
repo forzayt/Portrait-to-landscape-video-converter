@@ -13,9 +13,5 @@ var Module=typeof createFFmpegCore!="undefined"?createFFmpegCore:{};var readyPro
 
 );
 })();
-if (typeof exports === 'object' && typeof module === 'object')
-  module.exports = createFFmpegCore;
-else if (typeof define === 'function' && define['amd'])
-  define([], function() { return createFFmpegCore; });
-else if (typeof exports === 'object')
-  exports["createFFmpegCore"] = createFFmpegCore;
+// @ffmpeg/ffmpeg's module worker imports the factory as the default export.
+export default createFFmpegCore;

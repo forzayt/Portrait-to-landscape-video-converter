@@ -8,6 +8,7 @@ import type { FFmpeg } from "@ffmpeg/ffmpeg";
 import wasmAsset from "@/assets/ffmpeg-core.wasm.asset.json";
 
 /**
+ * The core must expose an ESM default export for FFmpeg's module worker.
  * Core script and wasm binary are both served same-origin (public dir and the
  * asset CDN path), so the worker can import them directly. Blob URLs are
  * blocked by some iframe sandbox policies, so they are avoided.
