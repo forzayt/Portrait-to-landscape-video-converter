@@ -7,7 +7,11 @@ import type { FFmpeg } from "@ffmpeg/ffmpeg";
 
 import wasmAsset from "@/assets/ffmpeg-core.wasm.asset.json";
 
-/** Self-hosted, same-origin core files: blob-URL cores break the ffmpeg worker. */
+/**
+ * The core script is fetched as text and handed to the worker as a blob URL:
+ * a direct /public URL would be rewritten by the dev server's module pipeline.
+ * The 32MB wasm binary is served straight from its asset URL.
+ */
 const CORE_URL = "/ffmpeg/ffmpeg-core.js";
 
 let ffmpegPromise: Promise<FFmpeg> | null = null;
@@ -15,12 +19,19 @@ let ffmpegPromise: Promise<FFmpeg> | null = null;
 async function getFFmpeg(onLog?: (line: string) => void): Promise<FFmpeg> {
   if (!ffmpegPromise) {
     ffmpegPromise = (async () => {
-      const { FFmpeg: FFmpegClass } = await import("@ffmpeg/ffmpeg");
+      const [{ FFmpeg: FFmpegClass }, coreSource] = await Promise.all([
+        import("@ffmpeg/ffmpeg"),
+        fetch(CORE_URL).then((res) => res.text()),
+      ]);
+      const coreURL = URL.createObjectURL(
+        new Blob([coreSource], { type: "text/javascript" }),
+      );
       const ffmpeg = new FFmpegClass();
-      await ffmpeg.load({ coreURL: CORE_URL, wasmURL: wasmAsset.url });
+      await ffmpeg.load({ coreURL, wasmURL: new URL(wasmAsset.url, location.origin).href });
       return ffmpeg;
     })();
   }
+
   const instance = await ffmpegPromise;
   if (onLog) {
     instance.on("log", ({ message }) => onLog(message));
